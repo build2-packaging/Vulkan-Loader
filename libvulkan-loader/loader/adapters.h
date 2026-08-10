@@ -1,0 +1,1 @@
+../../upstream/loader/adapters.h
