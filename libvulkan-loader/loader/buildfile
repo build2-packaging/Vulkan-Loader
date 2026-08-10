@@ -1,24 +1,105 @@
-intf_libs = # Interface dependencies.
+import intf_libs = libvulkan-headers%lib{vulkan-headers}
 impl_libs = # Implementation dependencies.
-#import xxxx_libs += libhello%lib{hello}
 
-lib{vulkan-loader}: libul{vulkan-loader}: {h c}{**} $impl_libs $intf_libs
+# Excluded sources:
+#   asm_offset.c                     - offset helper executable
+#   dev_ext_trampoline.c
+#   phys_dev_ext.c                   - optional asm trampolines
+#   dlopen_fuchsia.c                 - Fuchsia-only
+#   loader_windows.c / dirent_on_windows.c - Windows platform (conditional)
+#   loader_linux.c                   - Linux/BSD platform (conditional)
+#   generated/vk_loader_extensions.c - #included by loader.c, not a TU
+#
+lib{vulkan}: libul{vulkan}: h{**} \
+                             file{generated/vk_loader_extensions.c} \
+                             c{** -asm_offset -dev_ext_trampoline -phys_dev_ext \
+                                  -dlopen_fuchsia \
+                                  -loader_windows -dirent_on_windows \
+                                  -loader_linux \
+                                  -generated/vk_loader_extensions} \
+                             $impl_libs $intf_libs
 
-libs{vulkan-loader}: def{vulkan-loader}: include = ($c.target.system == 'win32-msvc')
-def{vulkan-loader}: libul{vulkan-loader}
+libul{vulkan}: c{loader_windows} c{dirent_on_windows}: \
+  include = ($c.target.class == 'windows')
+
+libul{vulkan}: c{loader_linux}: \
+  include = ($c.target.class == 'linux' || $c.target.class == 'bsd')
+
+libs{vulkan}: def{vulkan}: include = ($c.target.system == 'win32-msvc')
+def{vulkan}: libul{vulkan}
 
 # Build options.
 #
-c.poptions =+ "-I$out_root" "-I$src_root"
+c.poptions =+ "-I$src_base" "-I$src_base/generated"
+
+# VK_ENABLE_BETA_EXTENSIONS is required globally: the generated
+# vk_object_types.h uses beta-guarded enumerants unconditionally
+# (matching the upstream build).
+#
+c.poptions += -DVK_ENABLE_BETA_EXTENSIONS
+
+if ($c.target.class == 'windows')
+{
+  c.poptions += -DWIN32_LEAN_AND_MEAN -DVK_USE_PLATFORM_WIN32_KHR
+  if ($c.target.system == 'win32-msvc')
+    c.libs += cfgmgr32.lib advapi32.lib
+  else
+    c.libs += -lcfgmgr32 -ladvapi32
+}
+else
+{
+  # alloca() and secure_getenv() require _GNU_SOURCE on glibc.
+  #
+  c.poptions += -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64
+
+  c.poptions += -DFALLBACK_CONFIG_DIRS=\"/etc/xdg\" \
+                -DFALLBACK_DATA_DIRS=\"/usr/local/share:/usr/share\" \
+                -DSYSCONFDIR=\"/etc\"
+
+  if ($c.target.class == 'linux' || $c.target.class == 'bsd')
+  {
+    c.poptions += -DLOADER_ENABLE_LINUX_SORT \
+                  -DHAVE_SECURE_GETENV \
+                  -DVK_USE_PLATFORM_XCB_KHR \
+                  -DVK_USE_PLATFORM_XLIB_KHR \
+                  -DVK_USE_PLATFORM_XLIB_XRANDR_EXT \
+                  -DVK_USE_PLATFORM_WAYLAND_KHR
+  }
+
+  if ($c.target.class == 'bsd')
+    c.poptions += -D__BSD_VISIBLE=1
+
+  if ($c.target.class == 'macos')
+  {
+    # Match upstream: Metal plus the Darwin MoltenVK surface extension.
+    #
+    c.poptions += -DVK_USE_PLATFORM_METAL_EXT \
+                  -DVK_USE_PLATFORM_MACOS_MVK
+  }
+
+  # On lib{} only: directory-scope c.libs is applied twice with libul when
+  # linking libs{} (duplicate -ldl/-lm).
+  #
+  lib{vulkan}: c.libs += -ldl -lm
+  c.loptions += -pthread
+}
+
+if ($c.target.class != 'windows' && ($c.class == 'gcc' || $c.class == 'clang'))
+  c.coptions += -fvisibility=hidden
 
 if ($c.target.system == 'mingw32')
   c.loptions += -Wl,--export-all-symbols
 
+if ($c.target.class == 'macos')
+  c.libs += -framework CoreFoundation
+
 # Export options.
 #
-lib{vulkan-loader}:
+# Public headers come from libvulkan-headers (interface dependency).
+# Loader-internal headers are not installed.
+#
+lib{vulkan}:
 {
-  c.export.poptions = "-I$out_root" "-I$src_root"
   c.export.libs = $intf_libs
 }
 
@@ -26,16 +107,13 @@ lib{vulkan-loader}:
 # be used in place of another pre-release or the final version. See
 # the version module for details on the version.* variable values.
 #
-if $version.pre_release
-  lib{vulkan-loader}: bin.lib.version = "-$version.project_id"
-else
-  lib{vulkan-loader}: bin.lib.version = "-$version.major.$version.minor"
-
-# Install into the loader/ subdirectory of, say, /usr/include/
-# recreating subdirectories.
+# Upstream SOVERSION is 1 (libvulkan.so.1 / vulkan-1.dll).
 #
-h{*}:
-{
-  install         = include/loader/
-  install.subdirs = true
-}
+if $version.pre_release
+  lib{vulkan}: bin.lib.version = "-$version.project_id"
+else
+  lib{vulkan}: bin.lib.version = "-$version.major" linux@$version.major
+
+# Private headers are not installed (public API is libvulkan-headers).
+#
+h{*}: install = false
