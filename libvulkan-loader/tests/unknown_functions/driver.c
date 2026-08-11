@@ -9,9 +9,20 @@
 #include <assert.h>
 #include <stdint.h>
 
-// Implemented by unknown_ext_chain_* assembly, declared in dev_ext_trampoline.c
-// when UNKNOWN_FUNCTIONS_SUPPORTED is defined. Not a public API.
-VKAPI_ATTR void VKAPI_CALL vkdev_ext0 (VkDevice device);
+// Match loader ASM symbol names. On Apple, C defaults to a leading underscore
+// unless the declaration uses the same __asm("...") form as the loader
+// (MODIFY_UNKNOWN_FUNCTION_DECLS).
+//
+#if defined(__APPLE__)
+#define ASM_NAME(name) __asm(name)
+#else
+#define ASM_NAME(name)
+#endif
+
+// Implemented by unknown_ext_chain_* assembly, declared in
+// dev_ext_trampoline.c when UNKNOWN_FUNCTIONS_SUPPORTED is defined.
+// Not a public API.
+VKAPI_ATTR void VKAPI_CALL vkdev_ext0 (VkDevice device) ASM_NAME ("vkdev_ext0");
 
 int
 main (void)
