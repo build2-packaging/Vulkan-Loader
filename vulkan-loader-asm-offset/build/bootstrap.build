@@ -1,0 +1,6 @@
+project = vulkan-loader-asm-offset
+
+using version
+using config
+using install
+using dist

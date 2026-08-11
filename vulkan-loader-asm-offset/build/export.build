@@ -1,0 +1,6 @@
+$out_root/
+{
+  include loader/
+}
+
+export $out_root/loader/$import.target

@@ -1,0 +1,6 @@
+libs =
+#import libs += libhello%lib{hello}
+
+exe{vulkan-loader-asm-offset}: {h c}{**} $libs
+
+c.poptions =+ "-I$out_root" "-I$src_root"
