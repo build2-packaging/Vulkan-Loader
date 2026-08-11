@@ -15,4 +15,5 @@ package-url: https://github.com/build2-packaging/Vulkan-Loader
 package-email: packaging@build2.org ; Mailing list.
 depends: * build2 >= 0.18.0
 depends: * bpkg >= 0.18.0
+depends: * vulkan-loader-asm-offset == $
 depends: libvulkan-headers [1.4.359- 2.0.0-)

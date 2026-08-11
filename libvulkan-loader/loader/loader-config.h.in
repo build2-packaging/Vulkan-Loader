@@ -1,0 +1,3 @@
+#undef HAVE_UNKNOWN_FUNCTIONS_GAS
+#undef HAVE_CET_H
+#undef HAVE_ALLOCA_H

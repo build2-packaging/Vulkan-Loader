@@ -1,42 +1,65 @@
+using autoconf
+
 import intf_libs = libvulkan-headers%lib{vulkan-headers}
 impl_libs = # Implementation dependencies.
 
-# Excluded sources:
-#   asm_offset.c                     - offset helper executable
-#   dev_ext_trampoline.c
-#   phys_dev_ext.c                   - optional asm trampolines
-#   dlopen_fuchsia.c                 - Fuchsia-only
-#   loader_windows.c / dirent_on_windows.c - Windows platform (conditional)
-#   loader_linux.c                   - Linux/BSD platform (conditional)
-#   generated/vk_loader_extensions.c - #included by loader.c, not a TU
+import! asm_offset = vulkan-loader-asm-offset%exe{asm_offset}
+
+# Optional GAS unknown-extension trampolines and HAVE_CET_H (x86).
 #
-lib{vulkan}: libul{vulkan}: h{**} \
-                             file{generated/vk_loader_extensions.c} \
-                             c{** -asm_offset -dev_ext_trampoline -phys_dev_ext \
-                                  -dlopen_fuchsia \
-                                  -loader_windows -dirent_on_windows \
-                                  -loader_linux \
-                                  -generated/vk_loader_extensions} \
-                             $impl_libs $intf_libs
+h{loader-config}: in{loader-config}
 
-libul{vulkan}: c{loader_windows} c{dirent_on_windows}: \
-  include = ($c.target.class == 'windows')
+[rule_hint=c.predefs] \
+buildfile{loader-config}: h{loader-config}
+{
+  c.predefs.poptions = false
+  c.predefs.macros = HAVE_UNKNOWN_FUNCTIONS_GAS HAVE_CET_H HAVE_ALLOCA_H
+}
 
-libul{vulkan}: c{loader_linux}: \
-  include = ($c.target.class == 'linux' || $c.target.class == 'bsd')
+./: lib{vulkan} buildfile{loader-config}
 
-libs{vulkan}: def{vulkan}: include = ($c.target.system == 'win32-msvc')
-def{vulkan}: libul{vulkan}
+have_unknown_functions_gas = [bool] false
+have_cet_h = [bool] false
+have_alloca_h = [bool] false
+
+if ($build.meta_operation == 'perform')
+{
+  update buildfile{loader-config}
+  source $path(buildfile{loader-config})
+
+  have_unknown_functions_gas = ($HAVE_UNKNOWN_FUNCTIONS_GAS == 1 ? true : false)
+  have_cet_h                 = ($HAVE_CET_H                 == 1 ? true : false)
+  have_alloca_h              = ($HAVE_ALLOCA_H              == 1 ? true : false)
+}
+
+use_gas = $have_unknown_functions_gas
+
+is_x86 = ($c.target.cpu == 'x86_64' || $regex.match($c.target.cpu, 'i[3-6]86'))
+is_arm = ($c.target.cpu == 'aarch64' || $regex.match($c.target.cpu, 'arm.*'))
 
 # Build options.
 #
-c.poptions =+ "-I$src_base" "-I$src_base/generated"
+c.poptions =+ "-I$out_base" "-I$src_base" "-I$src_base/generated"
 
 # VK_ENABLE_BETA_EXTENSIONS is required globally: the generated
 # vk_object_types.h uses beta-guarded enumerants unconditionally
 # (matching the upstream build).
 #
 c.poptions += -DVK_ENABLE_BETA_EXTENSIONS
+
+if $have_alloca_h
+  c.poptions += -DHAVE_ALLOCA_H
+
+if $use_gas
+{
+  c.poptions += -DUNKNOWN_FUNCTIONS_SUPPORTED
+
+  if ($c.target.class == 'macos')
+    c.poptions += -DMODIFY_UNKNOWN_FUNCTION_DECLS
+
+  if $have_cet_h
+    c.poptions += -DHAVE_CET_H
+}
 
 if ($c.target.class == 'windows')
 {
@@ -92,6 +115,54 @@ if ($c.target.system == 'mingw32')
 
 if ($c.target.class == 'macos')
   c.libs += -framework CoreFoundation
+
+# asm_offset writes "gen_defines.asm" in its process cwd.
+#
+h{gen_defines.asm}: $asm_offset
+{{
+  diag gen $>
+  env -c $directory($path($>)) -- $path($<[0]) GAS
+}}
+
+# Excluded sources:
+#   asm_offset.c                     - in vulkan-loader-asm-offset package
+#   dev_ext_trampoline.c / phys_dev_ext.c - optional GAS, include= below
+#   dlopen_fuchsia.c                 - Fuchsia-only
+#   loader_windows.c / dirent_on_windows.c - Windows (conditional)
+#   loader_linux.c                   - Linux/BSD (conditional)
+#   generated/vk_loader_extensions.c - #included by loader.c, not a TU
+#
+lib{vulkan}: libul{vulkan}: h{** -loader-config -gen_defines.asm} \
+                             file{generated/vk_loader_extensions.c} \
+                             c{** -asm_offset -dev_ext_trampoline -phys_dev_ext \
+                                  -dlopen_fuchsia \
+                                  -loader_windows -dirent_on_windows \
+                                  -loader_linux \
+                                  -generated/vk_loader_extensions} \
+                             $impl_libs $intf_libs
+
+libul{vulkan}: c{loader_windows} c{dirent_on_windows}: \
+  include = ($c.target.class == 'windows')
+
+libul{vulkan}: c{loader_linux}: \
+  include = ($c.target.class == 'linux' || $c.target.class == 'bsd')
+
+libul{vulkan}: c{dev_ext_trampoline} c{phys_dev_ext}: include = $use_gas
+
+libul{vulkan}: S{unknown_ext_chain_gas_x86}: \
+  include = ($use_gas && $is_x86)
+libul{vulkan}: S{unknown_ext_chain_gas_aarch}: \
+  include = ($use_gas && $is_arm)
+
+libul{vulkan}: h{gen_defines.asm}: include = $use_gas
+
+# Windows MASM sources: ship in dist, not built yet.
+#
+libul{vulkan}: file{unknown_ext_chain_masm.asm \
+                    unknown_ext_chain_marmasm.asm}: include = false
+
+libs{vulkan}: def{vulkan}: include = ($c.target.system == 'win32-msvc')
+def{vulkan}: libul{vulkan}
 
 # Export options.
 #
