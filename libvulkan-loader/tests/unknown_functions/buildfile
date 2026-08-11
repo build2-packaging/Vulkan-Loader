@@ -1,0 +1,9 @@
+# Static archive: trampoline symbols are not exported from the shared library.
+#
+import! [metadata, rule_hint=c.link] libs = libvulkan-loader%liba{vulkan}
+
+unknown_functions = \
+  $($libs: libvulkan_loader.unknown_functions)
+
+./: exe{driver}: include = $unknown_functions
+exe{driver}: c{driver} $libs

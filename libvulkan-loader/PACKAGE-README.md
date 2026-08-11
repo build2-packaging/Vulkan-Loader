@@ -40,7 +40,10 @@ lib{vulkan}
 
 The shared library implementing the Vulkan ICD dispatch layer. Linking against
 it also transitively imports `libvulkan-headers` so consumers get the Vulkan C
-headers without a separate `depends:` entry.
+headers without a separate `depends:` entry. Optional unknown-extension
+trampolines are built when a suitable assembler is available. Whether they
+are present is exported as target metadata
+`libvulkan_loader.unknown_functions`.
 
 
 ## Configuration variables

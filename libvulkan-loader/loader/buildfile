@@ -301,6 +301,12 @@ def{vulkan}: libul{vulkan}
 lib{vulkan}:
 {
   c.export.libs = $intf_libs
+
+  # Build-time metadata for consumers (also written to pkg-config).
+  #
+  export.metadata = 1 libvulkan_loader
+
+  libvulkan_loader.unknown_functions = [bool] $use_unknown_asm
 }
 
 # For pre-releases use the complete version to make sure they cannot
