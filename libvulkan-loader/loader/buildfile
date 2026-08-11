@@ -5,7 +5,116 @@ impl_libs = # Implementation dependencies.
 
 import! asm_offset = vulkan-loader-asm-offset%exe{asm_offset}
 
-# Optional GAS unknown-extension trampolines and HAVE_CET_H (x86).
+define masm: file
+masm{*}: extension = asm
+
+windows  = ($c.target.class == 'windows')
+linux    = ($c.target.class == 'linux')
+bsd      = ($c.target.class == 'bsd')
+macos    = ($c.target.class == 'macos')
+mingw    = ($c.target.system == 'mingw32')
+msvc_sys = ($c.target.system == 'win32-msvc')
+x86      = ($c.target.cpu == 'x86_64' || $regex.match($c.target.cpu, 'i[3-6]86'))
+x86_64   = ($c.target.cpu == 'x86_64')
+arm      = ($c.target.cpu == 'aarch64' || $regex.match($c.target.cpu, 'arm.*'))
+aarch64  = ($c.target.cpu == 'aarch64')
+
+# Unknown-extension trampolines: MASM/MARMASM on Windows, GAS on Unix.
+#
+gcc_or_clang = ($c.class == 'gcc' || $c.class == 'clang')
+use_gas      = (!$windows && $gcc_or_clang && ($x86 || $arm))
+use_masm     = ($windows && $x86)
+use_marmasm  = ($windows && $arm)
+
+# Locate MASM/MARMASM next to $c.path, else PATH. Soft-disable if missing.
+#
+masm_asm = [path]
+masm_copts = [strings]
+tool = [string]
+
+switch $c.target.system, $c.target.cpu: path.match
+{
+  case 'win32-msvc', 'aarch64'
+  case 'mingw32', 'aarch64'
+  {
+    tool = 'armasm64.exe'
+    masm_copts = [strings] -nologo -c
+  }
+  case 'win32-msvc', 'arm*'
+  case 'mingw32', 'arm*'
+  {
+    tool = 'armasm.exe'
+    masm_copts = [strings] -nologo -c
+  }
+  case 'mingw32', 'x86_64'
+  {
+    tool = 'jwasm'
+    masm_copts = [strings] -win64 -c
+  }
+  case 'mingw32'
+  {
+    tool = 'jwasm'
+    masm_copts = [strings] -3 -coff -c
+  }
+  case 'win32-msvc', 'i[3-6]86'
+  {
+    tool = 'ml.exe'
+    masm_copts = [strings] -nologo -c -safeseh
+  }
+  case 'win32-msvc'
+  {
+    tool = 'ml64.exe'
+    masm_copts = [strings] -nologo -c
+  }
+}
+
+if ($use_masm || $use_marmasm)
+{
+  c_dir = [dir_path] $directory($effect($c.path))
+  ml_path = [path] $c_dir/$tool
+  if (!$file_exists($ml_path))
+    ml_path = [path] $process.search($tool)
+
+  if ($mingw && ($null($ml_path) || !$file_exists($ml_path)))
+  {
+    tool = 'uasm'
+    ml_path = [path] $c_dir/$tool
+    if (!$file_exists($ml_path))
+      ml_path = [path] $process.search($tool)
+  }
+
+  if ($null($ml_path) || !$file_exists($ml_path))
+  {
+    if ($build.meta_operation == 'configure')
+      info "assembler $tool not found, disabling unknown-function MASM"
+
+    use_masm = false
+    use_marmasm = false
+    masm_asm = [path]
+  }
+  else
+    masm_asm = [path] $ml_path
+}
+
+use_unknown_asm = ($use_gas || $use_masm || $use_marmasm)
+
+# gen_defines.asm comes from running host asm_offset (sizeof/offsetof). That is
+# only valid when host and target share CPU and OS class. Cross builds need a
+# target-compiler intermediate parse (upstream parse_asm_values.py), which we
+# do not implement. Fail rather than link trampolines with wrong constants.
+#
+if $use_unknown_asm
+{
+  if ($c.target.cpu != $build.host.cpu)
+    fail 'unknown-function ASM cannot cross-compile (host asm_offset would emit host offsets)'
+
+  if ($c.target.class != $build.host.class)
+    fail 'unknown-function ASM cannot cross-compile (host asm_offset would emit host offsets)'
+}
+
+asm_dialect = ($use_marmasm ? MARMASM : ($use_masm ? MASM : GAS))
+
+# HAVE_CET_H (GAS x86) and HAVE_ALLOCA_H via autoconf + c.predefs.
 #
 h{loader-config}: in{loader-config}
 
@@ -13,12 +122,12 @@ h{loader-config}: in{loader-config}
 buildfile{loader-config}: h{loader-config}
 {
   c.predefs.poptions = false
-  c.predefs.macros = HAVE_UNKNOWN_FUNCTIONS_GAS HAVE_CET_H HAVE_ALLOCA_H
+  c.predefs.macros = HAVE_CET_H HAVE_ALLOCA_H
 }
 
-./: lib{vulkan} buildfile{loader-config}
+./: lib{vulkan}
+./: buildfile{loader-config}
 
-have_unknown_functions_gas = [bool] false
 have_cet_h = [bool] false
 have_alloca_h = [bool] false
 
@@ -26,16 +135,9 @@ if ($build.meta_operation == 'perform')
 {
   update buildfile{loader-config}
   source $path(buildfile{loader-config})
-
-  have_unknown_functions_gas = ($HAVE_UNKNOWN_FUNCTIONS_GAS == 1 ? true : false)
-  have_cet_h                 = ($HAVE_CET_H                 == 1 ? true : false)
-  have_alloca_h              = ($HAVE_ALLOCA_H              == 1 ? true : false)
+  have_cet_h = ($HAVE_CET_H == 1 ? true : false)
+  have_alloca_h = ($HAVE_ALLOCA_H == 1 ? true : false)
 }
-
-use_gas = $have_unknown_functions_gas
-
-is_x86 = ($c.target.cpu == 'x86_64' || $regex.match($c.target.cpu, 'i[3-6]86'))
-is_arm = ($c.target.cpu == 'aarch64' || $regex.match($c.target.cpu, 'arm.*'))
 
 # Build options.
 #
@@ -47,24 +149,25 @@ c.poptions =+ "-I$out_base" "-I$src_base" "-I$src_base/generated"
 #
 c.poptions += -DVK_ENABLE_BETA_EXTENSIONS
 
+if $use_unknown_asm
+  c.poptions += -DUNKNOWN_FUNCTIONS_SUPPORTED
+
 if $have_alloca_h
   c.poptions += -DHAVE_ALLOCA_H
 
 if $use_gas
 {
-  c.poptions += -DUNKNOWN_FUNCTIONS_SUPPORTED
-
-  if ($c.target.class == 'macos')
+  if $macos
     c.poptions += -DMODIFY_UNKNOWN_FUNCTION_DECLS
 
   if $have_cet_h
     c.poptions += -DHAVE_CET_H
 }
 
-if ($c.target.class == 'windows')
+if $windows
 {
   c.poptions += -DWIN32_LEAN_AND_MEAN -DVK_USE_PLATFORM_WIN32_KHR
-  if ($c.target.system == 'win32-msvc')
+  if $msvc_sys
     c.libs += cfgmgr32.lib advapi32.lib
   else
     c.libs += -lcfgmgr32 -ladvapi32
@@ -79,7 +182,7 @@ else
                 -DFALLBACK_DATA_DIRS=\"/usr/local/share:/usr/share\" \
                 -DSYSCONFDIR=\"/etc\"
 
-  if ($c.target.class == 'linux' || $c.target.class == 'bsd')
+  if ($linux || $bsd)
   {
     c.poptions += -DLOADER_ENABLE_LINUX_SORT \
                   -DHAVE_SECURE_GETENV \
@@ -89,10 +192,10 @@ else
                   -DVK_USE_PLATFORM_WAYLAND_KHR
   }
 
-  if ($c.target.class == 'bsd')
+  if $bsd
     c.poptions += -D__BSD_VISIBLE=1
 
-  if ($c.target.class == 'macos')
+  if $macos
   {
     # Match upstream: Metal plus the Darwin MoltenVK surface extension.
     #
@@ -107,13 +210,13 @@ else
   c.loptions += -pthread
 }
 
-if ($c.target.class != 'windows' && ($c.class == 'gcc' || $c.class == 'clang'))
+if (!$windows && $gcc_or_clang)
   c.coptions += -fvisibility=hidden
 
-if ($c.target.system == 'mingw32')
+if $mingw
   c.loptions += -Wl,--export-all-symbols
 
-if ($c.target.class == 'macos')
+if $macos
   c.libs += -framework CoreFoundation
 
 # asm_offset writes "gen_defines.asm" in its process cwd.
@@ -121,12 +224,12 @@ if ($c.target.class == 'macos')
 h{gen_defines.asm}: $asm_offset
 {{
   diag gen $>
-  env -c $directory($path($>)) -- $path($<[0]) GAS
+  env -c $directory($path($>)) -- $path($<[0]) $asm_dialect
 }}
 
 # Excluded sources:
 #   asm_offset.c                     - in vulkan-loader-asm-offset package
-#   dev_ext_trampoline.c / phys_dev_ext.c - optional GAS, include= below
+#   dev_ext_trampoline.c / phys_dev_ext.c - optional ASM, include= below
 #   dlopen_fuchsia.c                 - Fuchsia-only
 #   loader_windows.c / dirent_on_windows.c - Windows (conditional)
 #   loader_linux.c                   - Linux/BSD (conditional)
@@ -142,26 +245,52 @@ lib{vulkan}: libul{vulkan}: h{** -loader-config -gen_defines.asm} \
                              $impl_libs $intf_libs
 
 libul{vulkan}: c{loader_windows} c{dirent_on_windows}: \
-  include = ($c.target.class == 'windows')
+  include = $windows
 
 libul{vulkan}: c{loader_linux}: \
-  include = ($c.target.class == 'linux' || $c.target.class == 'bsd')
+  include = ($linux || $bsd)
 
-libul{vulkan}: c{dev_ext_trampoline} c{phys_dev_ext}: include = $use_gas
+libul{vulkan}: c{dev_ext_trampoline} c{phys_dev_ext}: include = $use_unknown_asm
 
 libul{vulkan}: S{unknown_ext_chain_gas_x86}: \
-  include = ($use_gas && $is_x86)
+  include = ($use_gas && $x86)
 libul{vulkan}: S{unknown_ext_chain_gas_aarch}: \
-  include = ($use_gas && $is_arm)
+  include = ($use_gas && $arm)
 
-libul{vulkan}: h{gen_defines.asm}: include = $use_gas
+libul{vulkan}: h{gen_defines.asm}: include = $use_unknown_asm
 
-# Windows MASM sources: ship in dist, not built yet.
-#
-libul{vulkan}: file{unknown_ext_chain_masm.asm \
-                    unknown_ext_chain_marmasm.asm}: include = false
+libul{vulkan}: masm{unknown_ext_chain_masm}: include = $use_masm
+libul{vulkan}: masm{unknown_ext_chain_marmasm}: include = $use_marmasm
 
-libs{vulkan}: def{vulkan}: include = ($c.target.system == 'win32-msvc')
+libs{vulkan}: objs{unknown_ext_chain_masm.masm.so.obj}: include = $use_masm
+liba{vulkan}: obja{unknown_ext_chain_masm.masm.a.obj}:  include = $use_masm
+
+libs{vulkan}: objs{unknown_ext_chain_marmasm.masm.so.obj}: include = $use_marmasm
+liba{vulkan}: obja{unknown_ext_chain_marmasm.masm.a.obj}:  include = $use_marmasm
+
+objs{unknown_ext_chain_masm.masm.so.obj}: \
+  masm{unknown_ext_chain_masm} h{gen_defines.asm}
+obja{unknown_ext_chain_masm.masm.a.obj}: \
+  masm{unknown_ext_chain_masm} h{gen_defines.asm}
+
+objs{unknown_ext_chain_marmasm.masm.so.obj}: \
+  masm{unknown_ext_chain_marmasm} h{gen_defines.asm}
+obja{unknown_ext_chain_marmasm.masm.a.obj}: \
+  masm{unknown_ext_chain_marmasm} h{gen_defines.asm}
+
+objs{~'/(.*).masm.so/'}: masm{~'/\1/'} $masm_asm
+{{
+  diag asm ($<[0]) -> ($>[0])
+  $masm_asm $masm_copts "-I$out_base" -Fo $path($>[0]) $path($<[0]) >!
+}}
+
+obja{~'/(.*).masm.a/'}: masm{~'/\1/'} $masm_asm
+{{
+  diag asm ($<[0]) -> ($>[0])
+  $masm_asm $masm_copts "-I$out_base" -Fo $path($>[0]) $path($<[0]) >!
+}}
+
+libs{vulkan}: def{vulkan}: include = $msvc_sys
 def{vulkan}: libul{vulkan}
 
 # Export options.
