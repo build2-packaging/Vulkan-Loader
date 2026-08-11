@@ -1,15 +1,18 @@
 : 1
 name: vulkan-loader-asm-offset
-version: 0.1.0-a.0.z
+version: 1.4.359-a.0.z
 language: c
-project: build2-Vulkan-Loader
-summary: Vulkan Loader
+project: vulkan-loader
+summary: Host tool that emits loader ASM structure offsets
+topics: graphics, api, c, vulkan
 license: Apache-2.0 ; Apache License 2.0.
 description-file: README.md
 package-description-file: PACKAGE-README.md
-url: https://example.org/upstream
-email: upstream@example.org
-package-url: https://github.com/build2-packaging/build2-Vulkan-Loader
+url: https://github.com/KhronosGroup/Vulkan-Loader
+doc-url: https://docs.vulkan.org/
+src-url: https://github.com/KhronosGroup/Vulkan-Loader
+package-url: https://github.com/build2-packaging/Vulkan-Loader
 package-email: packaging@build2.org ; Mailing list.
 depends: * build2 >= 0.18.0
 depends: * bpkg >= 0.18.0
+depends: libvulkan-headers [1.4.359- 2.0.0-)
