@@ -1,6 +1,44 @@
-libs =
-#import libs += libhello%lib{hello}
+import libs = libvulkan-headers%lib{vulkan-headers}
 
-exe{vulkan-loader-asm-offset}: {h c}{**} $libs
+exe{asm_offset}: {h c}{**} $libs
 
-c.poptions =+ "-I$out_root" "-I$src_root"
+# Build options (layout-affecting defines must match the loader library).
+#
+c.poptions =+ "-I$src_base" "-I$src_base/generated"
+c.poptions += -DVK_ENABLE_BETA_EXTENSIONS
+
+if ($c.target.class == 'windows')
+{
+  c.poptions += -DWIN32_LEAN_AND_MEAN -DVK_USE_PLATFORM_WIN32_KHR
+}
+else
+{
+  c.poptions += -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64
+
+  c.poptions += -DFALLBACK_CONFIG_DIRS=\"/etc/xdg\" \
+                -DFALLBACK_DATA_DIRS=\"/usr/local/share:/usr/share\" \
+                -DSYSCONFDIR=\"/etc\"
+
+  if ($c.target.class == 'linux' || $c.target.class == 'bsd')
+  {
+    c.poptions += -DLOADER_ENABLE_LINUX_SORT \
+                  -DHAVE_SECURE_GETENV \
+                  -DVK_USE_PLATFORM_XCB_KHR \
+                  -DVK_USE_PLATFORM_XLIB_KHR \
+                  -DVK_USE_PLATFORM_XLIB_XRANDR_EXT \
+                  -DVK_USE_PLATFORM_WAYLAND_KHR
+  }
+
+  if ($c.target.class == 'bsd')
+    c.poptions += -D__BSD_VISIBLE=1
+
+  if ($c.target.class == 'macos')
+  {
+    c.poptions += -DVK_USE_PLATFORM_METAL_EXT \
+                  -DVK_USE_PLATFORM_MACOS_MVK
+  }
+}
+
+# Private headers are not installed.
+#
+h{*}: install = false
