@@ -1,7 +1,6 @@
-project = vulkan-loader-asm-offset
+project = # Unnamed tests subproject.
 
 using version
 using config
 using test
-using install
 using dist

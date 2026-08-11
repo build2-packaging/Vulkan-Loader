@@ -1,0 +1,11 @@
+using c
+
+h{*}: extension = h
+c{*}: extension = c
+
+import t = vulkan-loader-asm-offset%exe{asm_offset}
+testscript{*}: test = $t
+
+# The test target for cross-testing (running tests under Wine, etc).
+#
+test.target = $c.target

@@ -1,0 +1,3 @@
+: gas
+:
+$* GAS &gen_defines.asm
