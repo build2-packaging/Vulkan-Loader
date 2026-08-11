@@ -1,26 +1,28 @@
-# vulkan-loader-asm-offset - Vulkan Loader
+# vulkan-loader-asm-offset - Host tool for Vulkan loader ASM offsets
 
-This is a `build2` package for the [`<UPSTREAM-NAME>`](https://<UPSTREAM-URL>)
-executable. It is a <SUMMARY-OF-FUNCTIONALITY>.
-
-Note that the `vulkan-loader-asm-offset` executable in this package provides `build2` metadata.
+This is a `build2` package for a small host tool from
+[`Vulkan-Loader`](https://github.com/KhronosGroup/Vulkan-Loader). It builds
+`exe{asm_offset}`, which emits `gen_defines.asm` with structure offsets used
+by the loader's GAS unknown-extension trampolines.
 
 
 ## Usage
 
-To start using `vulkan-loader-asm-offset` in your project, add the following build-time
-`depends` value to your `manifest`, adjusting the version constraint as
-appropriate:
+Add a build-time dependency to your `manifest`, adjusting the version
+constraint as appropriate:
 
 ```
-depends: * vulkan-loader-asm-offset ^<VERSION>
+depends: * vulkan-loader-asm-offset ^1.4.359
 ```
 
 Then import the executable in your `buildfile`:
 
 ```
-import! [metadata] <TARGET> = vulkan-loader-asm-offset%exe{<TARGET>}
+import! asm_offset = vulkan-loader-asm-offset%exe{asm_offset}
 ```
+
+Run it with a dialect argument (`GAS`, `MASM`, or `MARMASM`). It writes
+`gen_defines.asm` in the process current working directory.
 
 
 ## Importable targets
@@ -28,18 +30,13 @@ import! [metadata] <TARGET> = vulkan-loader-asm-offset%exe{<TARGET>}
 This package provides the following importable targets:
 
 ```
-exe{<TARGET>}
+exe{asm_offset}
 ```
 
-<DESCRIPTION-OF-IMPORTABLE-TARGETS>
+Host helper used when building the loader's optional assembly trampolines.
+Not required by applications at runtime.
 
 
 ## Configuration variables
 
-This package provides the following configuration variables:
-
-```
-[bool] config.vulkan_loader_asm_offset.<VARIABLE> ?= false
-```
-
-<DESCRIPTION-OF-CONFIG-VARIABLES>
+This package has no configuration variables.
