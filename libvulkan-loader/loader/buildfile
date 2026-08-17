@@ -313,12 +313,30 @@ lib{vulkan}:
 # be used in place of another pre-release or the final version. See
 # the version module for details on the version.* variable values.
 #
-# Upstream SOVERSION is 1 (libvulkan.so.1 / vulkan-1.dll).
+# A final release uses the same shared library names as upstream CMake:
+# vulkan-1.dll, libvulkan.so.$version with SONAME libvulkan.so.1, and
+# libvulkan.1.dylib. linux@ needs MAJOR.MINOR[.EXTRA], so the project
+# version is passed through and the SONAME stays 1. macos@ and bsd@
+# are not implemented. Apple gets the compatibility name (the
+# LC_ID_DYLIB and dlopen name). BSD ($c.target.class == 'bsd') sets
+# the shared extension to so.$major so the file is libvulkan.so.1
+# (the SONAME and dlopen name).
 #
 if $version.pre_release
   lib{vulkan}: bin.lib.version = "-$version.project_id"
+elif $macos
+  lib{vulkan}: bin.lib.version = ".$version.major"
+elif $bsd
+  libs{vulkan}: extension = "so.$version.major"
 else
-  lib{vulkan}: bin.lib.version = "-$version.major" linux@$version.major
+  lib{vulkan}: bin.lib.version = "-$version.major" \
+    linux@$version.major.$version.minor.$version.patch
+
+# Upstream MinGW clears PREFIX so the DLL is vulkan-1.dll, not
+# libvulkan-1.dll.
+#
+if $mingw
+  libs{vulkan}: bin.lib.prefix = ""
 
 # Private headers are not installed (public API is libvulkan-headers).
 #
