@@ -1,0 +1,9 @@
+import libs = libvulkan-loader%lib{vulkan}
+
+# Not part of b test / CI. Build with the tests subproject, then run the
+# binary by hand to check that this loader can see a real ICD.
+#
+exe{driver}: {h c}{**} $libs
+{
+  test = false
+}
