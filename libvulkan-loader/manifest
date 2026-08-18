@@ -5,7 +5,7 @@ language: c
 project: vulkan-loader
 summary: The Vulkan ICD loader
 topics: graphics, api, c, vulkan
-license: Apache-2.0, MIT, HPND-Kevlin-Henney ; Apache License 2.0, plus MIT (cJSON) and HPND-Kevlin-Henney (dirent).
+license: Apache-2.0, HPND-Kevlin-Henney ; Apache License 2.0, plus HPND-Kevlin-Henney (dirent).
 description-file: README.md
 package-description-file: PACKAGE-README.md
 url: https://github.com/KhronosGroup/Vulkan-Loader
@@ -17,3 +17,4 @@ depends: * build2 >= 0.18.0
 depends: * bpkg >= 0.18.0
 depends: * vulkan-loader-asm-offset == $
 depends: libvulkan-headers [1.4.359- 2.0.0-)
+depends: libcjson ^ 1.7.19-
