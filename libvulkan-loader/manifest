@@ -1,6 +1,6 @@
 : 1
 name: libvulkan-loader
-version: 1.4.359
+version: 1.4.359+1
 language: c
 project: vulkan-loader
 summary: The Vulkan ICD loader
