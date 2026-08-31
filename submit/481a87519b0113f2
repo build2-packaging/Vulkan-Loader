@@ -1,0 +1,7 @@
+: 1
+name: vulkan-loader-asm-offset
+version: 1.4.359+1
+language: c
+project: vulkan-loader
+summary: Host tool that emits loader ASM structure offsets
+license: Apache-2.0; Apache License 2.0.
