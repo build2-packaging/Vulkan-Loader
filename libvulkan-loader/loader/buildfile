@@ -146,14 +146,6 @@ if ($build.meta_operation == 'perform')
 #
 c.poptions =+ "-I$out_base" "-I$src_base" "-I$src_base/generated"
 
-# Upstream sources call loader_cJSON_*. The header is empty when
-# __ASSEMBLER__ is set so as-cpp GAS can inherit this poption.
-#
-if ($c.class == 'msvc')
-  c.poptions += "/FI$src_base/cJSON-compat.h"
-else
-  c.poptions += -include $src_base/cJSON-compat.h
-
 # VK_ENABLE_BETA_EXTENSIONS is required globally: the generated
 # vk_object_types.h uses beta-guarded enumerants unconditionally
 # (matching the upstream build).

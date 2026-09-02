@@ -1,10 +1,21 @@
 /* Map upstream loader_cJSON_* names onto stock libcjson.
  *
- * Query, delete, and PrintPreallocated have the same signature and are
- * macros. Parse and Print take a VkAllocationCallbacks and an out-of-memory
- * flag in the loader fork. Those extra arguments are ignored here. JSON
- * memory uses the libcjson allocator (malloc/free unless hooks are set).
- * A null return is treated as a parse or print failure, not OOM.
+ * Query and delete have the same signature and are macros. Parse and Print
+ * take a VkAllocationCallbacks and an out-of-memory flag in the loader fork.
+ * Those extra arguments are ignored here. JSON memory uses the libcjson
+ * allocator (malloc/free unless hooks are set). A null return is treated as
+ * a parse or print failure, not OOM.
+ *
+ * The vendored loader_cJSON_Print is not stock JSON serialization. For a
+ * string node it copies valuestring with no surrounding quotes and without
+ * extra backslash escaping, and callers treat that as an allocated string
+ * value (ICD library_path, layer names, and so on). Stock cJSON_Print wraps
+ * strings in quotes, so the Print family is implemented here rather than
+ * forwarded.
+ *
+ * Included via the cJSON.h thunk (upstream writes #include "cJSON.h").
+ * Do not pull vk_loader_platform.h or extra CRT headers here. MSVC then
+ * re-includes them from the TU and errors with C2011 on corecrt/cJSON.
  */
 
 #ifndef LOADER_CJSON_COMPAT_H
@@ -14,10 +25,17 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include <cjson/cJSON.h>
 
-#include "vk_loader_platform.h"
+/* loader_json.h uses this before vk_loader_platform.h is included. Empty
+ * unless SHOULD_EXPORT_TEST_FUNCTIONS, matching that header's default.
+ */
+#ifndef TEST_FUNCTION_EXPORT
+#define TEST_FUNCTION_EXPORT
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -43,7 +61,6 @@ struct VkAllocationCallbacks;
 #define loader_cJSON_IsArray                    cJSON_IsArray
 #define loader_cJSON_IsObject                   cJSON_IsObject
 #define loader_cJSON_IsRaw                      cJSON_IsRaw
-#define loader_cJSON_PrintPreallocated          cJSON_PrintPreallocated
 
 static inline cJSON *
 loader_cJSON_Parse (const struct VkAllocationCallbacks *pAllocator,
@@ -103,8 +120,38 @@ loader_cJSON_ParseWithLengthOpts (const struct VkAllocationCallbacks *pAllocator
 }
 
 static inline char *
+loader_cjson_dup_string (const cJSON *item, bool *out_of_memory)
+{
+  const char *s;
+  size_t n;
+  char *copy;
+
+  if (out_of_memory != NULL)
+    *out_of_memory = false;
+
+  s = cJSON_GetStringValue (item);
+  if (s == NULL)
+    s = "";
+
+  n = strlen (s) + 1;
+  copy = (char *) malloc (n);
+  if (copy == NULL)
+  {
+    if (out_of_memory != NULL)
+      *out_of_memory = true;
+    return NULL;
+  }
+
+  memcpy (copy, s, n);
+  return copy;
+}
+
+static inline char *
 loader_cJSON_Print (const cJSON *item, bool *out_of_memory)
 {
+  if (item != NULL && cJSON_IsString (item))
+    return loader_cjson_dup_string (item, out_of_memory);
+
   if (out_of_memory != NULL)
     *out_of_memory = false;
 
@@ -114,6 +161,9 @@ loader_cJSON_Print (const cJSON *item, bool *out_of_memory)
 static inline char *
 loader_cJSON_PrintUnformatted (const cJSON *item, bool *out_of_memory)
 {
+  if (item != NULL && cJSON_IsString (item))
+    return loader_cjson_dup_string (item, out_of_memory);
+
   if (out_of_memory != NULL)
     *out_of_memory = false;
 
@@ -126,10 +176,42 @@ loader_cJSON_PrintBuffered (const cJSON *item,
                             cJSON_bool fmt,
                             bool *out_of_memory)
 {
+  if (item != NULL && cJSON_IsString (item))
+    return loader_cjson_dup_string (item, out_of_memory);
+
   if (out_of_memory != NULL)
     *out_of_memory = false;
 
   return cJSON_PrintBuffered (item, prebuffer, fmt);
+}
+
+static inline cJSON_bool
+loader_cJSON_PrintPreallocated (cJSON *item,
+                                char *buffer,
+                                const int length,
+                                const cJSON_bool format)
+{
+  const char *s;
+  size_t n;
+
+  if (item != NULL && cJSON_IsString (item))
+  {
+    if (buffer == NULL || length <= 0)
+      return (cJSON_bool) 0;
+
+    s = cJSON_GetStringValue (item);
+    if (s == NULL)
+      s = "";
+
+    n = strlen (s);
+    if (n + 1 > (size_t) length)
+      return (cJSON_bool) 0;
+
+    memcpy (buffer, s, n + 1);
+    return (cJSON_bool) 1;
+  }
+
+  return cJSON_PrintPreallocated (item, buffer, length, format);
 }
 
 #ifdef __cplusplus
