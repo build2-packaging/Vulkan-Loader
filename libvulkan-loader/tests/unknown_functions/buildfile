@@ -1,9 +1,17 @@
-# Static archive: trampoline symbols are not exported from the shared library.
+# Trampoline symbols live in the static archive, not the shared library.
+# Windows has no static variant (DllMain). Query metadata with import?
+# so test-installed does not fail when liba{vulkan} is absent.
+# test-installed's $bin.lib is the tests project, not the installed library.
 #
-import! [metadata, rule_hint=c.link] libs = libvulkan-loader%liba{vulkan}
+import? [metadata, rule_hint=c.link] vulkan = libvulkan-loader%liba{vulkan}
 
-unknown_functions = \
-  $($libs: libvulkan_loader.unknown_functions)
+unknown_functions = [bool] false
+if ($vulkan != [null] && $c.target.class != 'windows')
+  unknown_functions = $($vulkan: libvulkan_loader.unknown_functions)
+
+libs =
+if $unknown_functions
+  import libs = libvulkan-loader%liba{vulkan}
 
 ./: exe{driver}: include = $unknown_functions
 exe{driver}: c{driver} $libs
