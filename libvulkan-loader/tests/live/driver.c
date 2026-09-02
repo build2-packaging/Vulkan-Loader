@@ -15,8 +15,19 @@ main (void)
     .apiVersion = VK_API_VERSION_1_0,
   };
 
+#ifdef __APPLE__
+  // MoltenVK is a portability ICD. Any app on macOS must enable this
+  // extension and flag or the loader will skip the driver.
+  const char *exts[] = {VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME};
+#endif
+
   VkInstanceCreateInfo ci = {
     .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+#ifdef __APPLE__
+    .flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR,
+    .enabledExtensionCount = 1,
+    .ppEnabledExtensionNames = exts,
+#endif
     .pApplicationInfo = &app,
   };
 
