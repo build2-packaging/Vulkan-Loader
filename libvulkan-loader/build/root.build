@@ -6,6 +6,21 @@ using c
 using c.as-cpp
 using c.predefs
 
+# Upstream Windows loader is a DLL. DllMain creates the loader mutexes.
+# A static archive never runs DllMain, so the first API call access-violates.
+#
+if ($c.target.class == 'windows')
+{
+  switch $bin.lib
+  {
+    case 'static'
+      fail 'Windows loader requires the shared library (DllMain initializes mutexes)'
+
+    case 'both'
+      bin.lib = shared
+  }
+}
+
 h{*}: extension = h
 c{*}: extension = c
 
