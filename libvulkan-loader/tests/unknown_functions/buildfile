@@ -1,26 +1,26 @@
-# Trampoline symbols live in the static archive, not the shared library.
-# Windows has no static variant (DllMain). Query metadata with import?
-# so test-installed does not fail when liba{vulkan} is absent.
-# test-installed's $bin.lib is the tests project, not the installed library.
+# Trampoline symbols live in the utility library, not liba{}/libs{}. libul{}
+# sidesteps bin.lib (which disables liba{vulkan} on Windows) and isn't
+# installed, so import? nulls cleanly under test-installed.
 #
-# Force this driver's own implicit lib{} resolutions to static. liba{vulkan}
-# pulls in libcjson (an implementation-only dependency), and installed liba{}
-# consumers get no rpath for that transitive shared dependency (build2 issue
-# #528 / pending fix build2#535). Forcing static here has this driver embed
-# cjson directly instead, so there is nothing left to rpath. Scoped to this
-# buildfile only: basics/live still exercise the shared libvulkan.
+# Match basics/live's target spelling per platform: a mismatched spelling
+# for the same lib{} group within one tests/ configure hits build2 issue
+# #561 (second pkgconfig_load on the same group asserts).
 #
-bin.exe.lib = static
-
-import? [metadata, rule_hint=c.link] vulkan = libvulkan-loader%liba{vulkan}
+if ($c.target.system == 'mingw32')
+  import? [metadata, rule_hint=c.link] vulkan = libvulkan-loader%libs{vulkan}
+else
+  import? [metadata, rule_hint=c.link] vulkan = libvulkan-loader%lib{vulkan}
 
 unknown_functions = [bool] false
-if ($vulkan != [null] && $c.target.class != 'windows')
+if ($vulkan != [null])
   unknown_functions = $($vulkan: libvulkan_loader.unknown_functions)
 
 libs =
 if $unknown_functions
-  import libs = libvulkan-loader%liba{vulkan}
+{
+  import? libs = libvulkan-loader%libul{vulkan}
+  unknown_functions = ($libs != [null])
+}
 
 ./: exe{driver}: include = $unknown_functions
 exe{driver}: c{driver} $libs
