@@ -3,6 +3,15 @@
 # so test-installed does not fail when liba{vulkan} is absent.
 # test-installed's $bin.lib is the tests project, not the installed library.
 #
+# Force this driver's own implicit lib{} resolutions to static. liba{vulkan}
+# pulls in libcjson (an implementation-only dependency), and installed liba{}
+# consumers get no rpath for that transitive shared dependency (build2 issue
+# #528 / pending fix build2#535). Forcing static here has this driver embed
+# cjson directly instead, so there is nothing left to rpath. Scoped to this
+# buildfile only: basics/live still exercise the shared libvulkan.
+#
+bin.exe.lib = static
+
 import? [metadata, rule_hint=c.link] vulkan = libvulkan-loader%liba{vulkan}
 
 unknown_functions = [bool] false
