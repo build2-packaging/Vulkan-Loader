@@ -265,11 +265,11 @@ libul{vulkan}: h{gen_defines.asm}: include = $use_unknown_asm
 libul{vulkan}: masm{unknown_ext_chain_masm}: include = $use_masm
 libul{vulkan}: masm{unknown_ext_chain_marmasm}: include = $use_marmasm
 
-libs{vulkan}: objs{unknown_ext_chain_masm.masm.so.obj}: include = $use_masm
-liba{vulkan}: obja{unknown_ext_chain_masm.masm.a.obj}:  include = $use_masm
+libus{vulkan}: objs{unknown_ext_chain_masm.masm.so.obj}: include = $use_masm
+libua{vulkan}: obja{unknown_ext_chain_masm.masm.a.obj}:  include = $use_masm
 
-libs{vulkan}: objs{unknown_ext_chain_marmasm.masm.so.obj}: include = $use_marmasm
-liba{vulkan}: obja{unknown_ext_chain_marmasm.masm.a.obj}:  include = $use_marmasm
+libus{vulkan}: objs{unknown_ext_chain_marmasm.masm.so.obj}: include = $use_marmasm
+libua{vulkan}: obja{unknown_ext_chain_marmasm.masm.a.obj}:  include = $use_marmasm
 
 objs{unknown_ext_chain_masm.masm.so.obj}: \
   masm{unknown_ext_chain_masm} h{gen_defines.asm}
