@@ -19,3 +19,5 @@ depends: * vulkan-loader-asm-offset == $
 depends: libvulkan-headers [1.4.359- 2.0.0-)
 depends: libcjson ^ 1.7.19-
 build-exclude: windows**-static** ; Static loader is unsupported on Windows (DllMain).
+build-exclude: *-msvc_14** ; c.predefs requires Visual Studio 2019 or later.
+build-exclude: *-msvc_15** ; c.predefs requires Visual Studio 2019 or later.
