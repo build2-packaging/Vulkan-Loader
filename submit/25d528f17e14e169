@@ -1,0 +1,8 @@
+: 1
+name: libvulkan-loader
+version: 1.4.359+2
+language: c
+project: vulkan-loader
+summary: The Vulkan ICD loader
+license: Apache-2.0, HPND-Kevlin-Henney; Apache License 2.0, plus\
+ HPND-Kevlin-Henney (dirent).
