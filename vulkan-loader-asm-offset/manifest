@@ -9,10 +9,10 @@ license: Apache-2.0 ; Apache License 2.0.
 description-file: README.md
 package-description-file: PACKAGE-README.md
 url: https://github.com/KhronosGroup/Vulkan-Loader
-doc-url: https://docs.vulkan.org/
+doc-url: https://docs.vulkan.org/guide/latest/loader.html
 src-url: https://github.com/KhronosGroup/Vulkan-Loader
 package-url: https://github.com/build2-packaging/Vulkan-Loader
 package-email: packaging@build2.org ; Mailing list.
 depends: * build2 >= 0.18.0
 depends: * bpkg >= 0.18.0
-depends: libvulkan-headers [1.4.359- 2.0.0-)
+depends: libvulkan-headers ^ 1.4.359

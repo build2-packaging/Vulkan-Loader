@@ -9,15 +9,15 @@ license: Apache-2.0, HPND-Kevlin-Henney ; Apache License 2.0, plus HPND-Kevlin-H
 description-file: README.md
 package-description-file: PACKAGE-README.md
 url: https://github.com/KhronosGroup/Vulkan-Loader
-doc-url: https://docs.vulkan.org/
+doc-url: https://docs.vulkan.org/guide/latest/loader.html
 src-url: https://github.com/KhronosGroup/Vulkan-Loader
 package-url: https://github.com/build2-packaging/Vulkan-Loader
 package-email: packaging@build2.org ; Mailing list.
 depends: * build2 >= 0.18.0
 depends: * bpkg >= 0.18.0
 depends: * vulkan-loader-asm-offset == $
-depends: libvulkan-headers [1.4.359- 2.0.0-)
-depends: libcjson ^ 1.7.19-
+depends: libvulkan-headers ^ 1.4.359
+depends: libcjson ^ 1.7.19
 build-exclude: windows**-static** ; Static loader is unsupported on Windows (DllMain).
 build-exclude: *-msvc_14** ; c.predefs requires Visual Studio 2019 or later.
 build-exclude: *-msvc_15** ; c.predefs requires Visual Studio 2019 or later.
