@@ -1,0 +1,7 @@
+import libs = libvulkan-loader%lib{vulkan}
+
+exe{driver}: {h c}{**} $libs testscript
+
+# Source-tree layer JSON. Linked into $~ by the testscript.
+#
+exe{driver}: file{layers/**}: include = adhoc

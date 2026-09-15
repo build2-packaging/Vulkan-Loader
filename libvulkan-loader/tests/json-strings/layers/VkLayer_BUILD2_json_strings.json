@@ -1,0 +1,14 @@
+{
+  "file_format_version": "1.0.0",
+  "layer": {
+    "name": "VK_LAYER_BUILD2_json_strings",
+    "type": "INSTANCE",
+    "library_path": "libdummy.so",
+    "api_version": "1.0.0",
+    "implementation_version": "1",
+    "description": "build2 json string parse test",
+    "disable_environment": {
+      "DISABLE_VK_LAYER_BUILD2_json_strings": "1"
+    }
+  }
+}

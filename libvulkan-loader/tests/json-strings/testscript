@@ -1,0 +1,9 @@
+: discover-unquoted-name
+:
+: Point the loader at the fixture implicit-layer directory. Enumeration
+: reads the JSON name and description without loading library_path.
+:
+{
+  ln -s $src_base/layers/ layers
+  env VK_ADD_IMPLICIT_LAYER_PATH="$~/layers" -- $*
+}
