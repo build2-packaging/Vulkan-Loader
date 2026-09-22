@@ -239,6 +239,18 @@ else
 if (!$windows && $gcc_or_clang)
   c.coptions += -fvisibility=hidden
 
+if ($c.id.type == 'gcc')
+{
+  # Match upstream (CMakeLists.txt): both are known GCC false positives on
+  # the bounded strncpy/strncat helpers in vk_loader_platform.h and
+  # loader_linux.c (manually bounded/null-terminated, not defects). Real
+  # GCC only (c.id.type), not Clang: c.class == 'gcc' would also match
+  # Clang, since build2's compiler_class groups gcc and clang together
+  # (only 'gcc'/'msvc' exist as c.class values) - upstream itself only
+  # disables these for CMAKE_C_COMPILER_ID STREQUAL "GNU", excluding Clang.
+  c.coptions += -Wno-stringop-truncation -Wno-stringop-overflow
+}
+
 if $mingw
   c.loptions += -Wl,--export-all-symbols
 
