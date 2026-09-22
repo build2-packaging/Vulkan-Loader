@@ -20,6 +20,18 @@ if $unknown_functions
 {
   import? libs = libvulkan-loader%libul{vulkan}
   unknown_functions = ($libs != [null])
+
+  # libul{} is the internal utility library: unlike lib{}, it does not
+  # carry -ldl/-lm/-pthread (loader/buildfile scopes those to lib{vulkan}
+  # only, to avoid duplicating them when libul{} feeds into liba{}/libs{}
+  # there). Bypassing lib{} for the trampoline symbols means supplying
+  # them here too.
+  #
+  if ($unknown_functions && $c.target.class != 'windows')
+  {
+    c.libs += -ldl -lm
+    c.loptions += -pthread
+  }
 }
 
 ./: exe{driver}: include = $unknown_functions
