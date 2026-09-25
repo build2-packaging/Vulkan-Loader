@@ -17,7 +17,7 @@ have_wayland_client_h = [bool] \
 c.poptions =+ "-I$src_base" "-I$src_base/generated"
 c.poptions += -DVK_ENABLE_BETA_EXTENSIONS
 
-if ($c.target.system == 'win32-msvc')
+if ($c.class == 'msvc')
 {
   # Match upstream (CMakeLists.txt): C4152/C4201 are expected/by-design for
   # this codebase (function/data pointer casts in the dispatch trampolines,

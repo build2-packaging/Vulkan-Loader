@@ -180,17 +180,18 @@ if $windows
 {
   c.poptions += -DWIN32_LEAN_AND_MEAN -DVK_USE_PLATFORM_WIN32_KHR
   if $msvc_sys
-  {
     c.libs += cfgmgr32.lib advapi32.lib
+  else
+    c.libs += -lcfgmgr32 -ladvapi32
 
+  if ($c.class == 'msvc')
+  {
     # Match upstream (CMakeLists.txt): C4152/C4201 are expected/by-design
     # for this codebase (function/data pointer casts in the dispatch
     # trampolines, anonymous struct/union in generated headers), not
     # defects to fix.
     c.coptions += -wd4152 -wd4201
   }
-  else
-    c.libs += -lcfgmgr32 -ladvapi32
 }
 else
 {
